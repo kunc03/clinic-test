@@ -12,7 +12,7 @@
       <Listbox
         v-if="accordionItems.length > 0"
         v-model="state.selectedBox"
-        class="menu w-full border-none rounded-none custom-listbox bg-transparent"
+        class="w-full bg-transparent border-none rounded-none menu custom-listbox"
         :options="accordionItems"
         listStyle="max-height:calc(100%); scrollbar-width:none;"
         pt:list:class="gap-[5px]"
@@ -22,13 +22,13 @@
           <img v-if="isOptionSelected(option)" src="~/assets/images/bg-diamond.jpg" class="bg-img" />
           <div v-if="isOptionSelected(option)" class="bg-color" />
           <div
-            class="menu-item flex justify-between h-full cursor-pointer z-50 relative items-center w-full bg-transparent"
+            class="relative z-50 flex items-center justify-between w-full h-full bg-transparent cursor-pointer menu-item"
             :class="{ 'menu-item-selected text-[#000080]': isOptionSelected(option) }"
             @click="handleMainClick(option)"
           >
             <div class="flex justify-between pl-6">{{ option.title }}</div>
             <div
-              class="pl-4 pr-6 h-full flex justify-center items-center"
+              class="flex items-center justify-center h-full pl-4 pr-6"
               @click.stop="handleArrowClick(option, $event)"
             >
               <img
@@ -64,9 +64,9 @@
               pt:option:class="!p-0"
             >
               <template #option="{ option, selected }">
-                <div class="w-full flex justify-between px-3 py-2" @click.stop="handleItemClick(option)">
+                <div class="flex justify-between w-full px-3 py-2" @click.stop="handleItemClick(option)">
                   <span> {{ option.title }} </span>
-                  <div class="flex-none ml-2 w-6">
+                  <div class="flex-none w-6 ml-2">
                     <ProgressSpinner
                       v-if="option.loading"
                       style="width: 24px; height: 24px"
@@ -116,7 +116,6 @@ const state = ref({
 });
 
 const accordionItems = ref([]);
-const isClicked = ref(false);
 const submenuPosition = ref({ top: '0px', left: '0px' });
 const isVisible = computed(() => state.value.submenuVisible);
 const refSubMenu = ref(null);
@@ -135,7 +134,7 @@ const handleMainClick = (option) => {
   sidebarStore.setOpen(false);
 };
 
-const handleArrowClick = async (option, event) => {
+const handleArrowClick = (option, event) => {
   const menuItem = event.target.closest('.menu-item');
   if (!menuItem) {
     console.warn('Menu item tidak ditemukan');
@@ -148,49 +147,51 @@ const handleArrowClick = async (option, event) => {
     handleMainClick(option);
   }
 
+  // Gunakan data yang sudah di-map saat load, tanpa re-processing
   state.value.selectedSubMenu = {
     ...option,
-    data: await Promise.all(
-      option.data.map(async (subMenu) => {
-        const images = subMenu.data.map((item) => item.url).filter(Boolean);
-        return {
-          ...subMenu,
-          loading: await checkImageOnCache(images),
-        };
-      }),
-    ),
+    data: option.data,
   };
 
   state.value.submenuVisible = true;
 
-  requestAnimationFrame(() => {
-    const rect = menuItem.getBoundingClientRect();
-    const menuItemWidth = 250;
-    const menuItemHeight = 48;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    let leftPosition = rect.right - 12 + window.scrollX;
-    let topPosition = rect.top - 4 + window.scrollY;
-    const submenu = refSubMenu.value.getBoundingClientRect();
+  // Mulai background loading check - non-blocking
+  startSubmenuLoadingCheck();
 
-    if (leftPosition + menuItemWidth > viewportWidth) {
-      leftPosition = rect.left - 24;
-      topPosition = rect.top + menuItemHeight + window.scrollY;
+  // Calculate position - synchronous tanpa setTimeout
+  const rect = menuItem.getBoundingClientRect();
+  const menuItemWidth = 250;
+  const menuItemHeight = 48;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  let leftPosition = rect.right - 12 + window.scrollX;
+  let topPosition = rect.top - 4 + window.scrollY;
+
+  // Position akan diupdate di nextTick untuk ensure DOM sudah ready
+  nextTick(() => {
+    if (refSubMenu.value) {
+      const submenu = refSubMenu.value.getBoundingClientRect();
+
+      if (leftPosition + menuItemWidth > viewportWidth) {
+        leftPosition = rect.left - 24;
+        topPosition = rect.top + menuItemHeight + window.scrollY;
+      }
+
+      if (topPosition + submenu.height > viewportHeight) {
+        topPosition = topPosition - (topPosition + submenu.height - viewportHeight);
+      }
+
+      submenuPosition.value = {
+        top: `${topPosition}px`,
+        left: `${leftPosition}px`,
+      };
     }
-
-    if (topPosition + submenu.height > viewportHeight) {
-      topPosition = topPosition - (topPosition + submenu.height - viewportHeight);
-    }
-
-    submenuPosition.value = {
-      top: `${topPosition}px`,
-      left: `${leftPosition}px`,
-    };
   });
 };
 
 const handleClickOutside = () => {
   state.value.submenuVisible = false;
+  stopSubmenuLoadingCheck();
 };
 
 const handleItemClick = (item) => {
@@ -214,87 +215,66 @@ const handleItemClick = (item) => {
 
   setTimeout(() => {
     state.value.submenuVisible = false;
+    stopSubmenuLoadingCheck();
     sidebarStore.setOpen(false);
   }, 100);
 };
-
-watchEffect(() => {
-  if (state.value.selectedBox) {
-    const item = state.value.selectedBox;
-  }
-});
 
 const checkLoadedMenu = () => {
   return accordionItems.value.every((menu) => !menu.loading);
 };
 
-const setAccordionItems = async (data) => {
-  accordionItems.value = await Promise.all(
-    data.map(async (item) => {
-      const images = [];
-      if (item.cover) {
-        images.push(item.cover);
-      }
+const setAccordionItems = (data) => {
+  // Render data instantly tanpa menunggu image check
+  accordionItems.value = data.map((item) => {
+    const images = [];
+    if (item.cover) {
+      images.push(item.cover);
+    }
 
-      const subItems = item.data.map((subItem) => ({
-        ...subItem,
-        clicked: false,
-        data: subItem.data.map((i) => {
-          if (i.url) {
-            images.push(i.url);
-          }
-          return { ...i };
-        }),
-      }));
+    const subItems = item.data.map((subItem) => ({
+      ...subItem,
+      clicked: false,
+      data: subItem.data.map((i) => {
+        if (i.url) {
+          images.push(i.url);
+        }
+        return { ...i };
+      }),
+    }));
 
-      return {
-        ...item,
-        clicked: false,
-        loading: await checkImageOnCache(images),
-        data: subItems,
-      };
-    }),
-  );
+    return {
+      ...item,
+      clicked: false,
+      loading: false, // Default false agar instant tampil
+      data: subItems,
+      _images: images, // Store images untuk di-check di background
+    };
+  });
+
+  // Background: check loading status secara async tanpa blocking render
+  nextTick(async () => {
+    const updatedItems = await Promise.all(
+      accordionItems.value.map(async (item) => {
+        const loading = await checkImageOnCache(item._images);
+        return { ...item, loading };
+      }),
+    );
+    accordionItems.value = updatedItems;
+  });
 };
 
 let intervalCheckMenu;
 watch(
   () => props.data,
-  async (newData) => {
+  (newData) => {
     clearInterval(intervalCheckMenu);
 
+    // Set accordion items instantly - sekali saja
     setAccordionItems(newData);
-
-    intervalCheckMenu = setInterval(() => {
-      setAccordionItems(newData);
-
-      if (checkLoadedMenu()) {
-        clearInterval(intervalCheckMenu);
-      }
-    }, 1000);
   },
   { immediate: true },
 );
-
-const setSelectedSubMenu = async () => {
-  state.value.selectedSubMenu = {
-    ...state.value.selectedSubMenu,
-    data: await Promise.all(
-      state.value.selectedSubMenu.data.map(async (subMenu) => {
-        const images = subMenu.data.map((item) => item.url).filter((item) => item);
-
-        return {
-          ...subMenu,
-          loading: await checkImageOnCache(images),
-        };
-      }),
-    ),
-  };
-};
-
-const checkLoadedSelectedSubMenu = () => {
-  return state.value.selectedSubMenu.data.every((subMenu) => !subMenu.loading);
-};
 
 let intervalCheckAllImages;
 const checkAllImageLoaded = async () => {
@@ -318,36 +298,83 @@ const checkAllImageLoaded = async () => {
     });
   });
 
-  intervalCheckAllImages = setInterval(async () => {
-    const response = await checkImageOnCache(images);
+  // First check immediately
+  let response = await checkImageOnCache(images);
 
-    if (!response) {
-      clearInterval(intervalCheckAllImages);
-      console.log('All images are loaded');
-      toast.add({ severity: 'info', summary: 'Info', detail: 'All images are loaded', life: 5000 });
-    }
-  }, 1000);
+  if (response) {
+    // Kalau semua sudah loaded, jangan polling lagi
+    console.log('All images are loaded');
+    toast.add({ severity: 'info', summary: 'Info', detail: 'All images are loaded', life: 5000 });
+  } else {
+    // Kalau masih loading, set interval untuk re-check (tapi dengan frequency yang lebih rendah)
+    intervalCheckAllImages = setInterval(async () => {
+      const resp = await checkImageOnCache(images);
+
+      if (resp) {
+        clearInterval(intervalCheckAllImages);
+        console.log('All images are loaded');
+        toast.add({ severity: 'info', summary: 'Info', detail: 'All images are loaded', life: 5000 });
+      }
+    }, 5000); // Ubah ke 5 detik
+  }
 };
 
 let intervalCheckSubMenu;
-watchEffect(async () => {
-  if (isVisible.value) {
-    intervalCheckSubMenu = setInterval(() => {
-      setSelectedSubMenu();
+let loadingCheckTimeout;
+// Background check untuk loading status submenu - tidak blocking UI
+const startSubmenuLoadingCheck = () => {
+  clearInterval(intervalCheckSubMenu);
+  clearTimeout(loadingCheckTimeout);
 
-      if (checkLoadedSelectedSubMenu()) {
-        clearInterval(intervalCheckSubMenu);
+  // Skip loading check jika sudah semua loaded
+  if (state.value.selectedSubMenu?.data?.every((item) => !item.loading)) {
+    return;
+  }
+
+  // First check immediately
+  loadingCheckTimeout = setTimeout(async () => {
+    if (state.value.selectedSubMenu?.data?.length > 0) {
+      const updatedData = await Promise.all(
+        state.value.selectedSubMenu.data.map(async (subMenu) => {
+          const images = subMenu.data.map((item) => item.url).filter((item) => item);
+          const loading = await checkImageOnCache(images);
+          return { ...subMenu, loading };
+        }),
+      );
+
+      state.value.selectedSubMenu.data = updatedData;
+
+      // Kalau masih ada yang loading, set interval untuk re-check
+      if (!updatedData.every((subMenu) => !subMenu.loading)) {
+        intervalCheckSubMenu = setInterval(async () => {
+          const recheckData = await Promise.all(
+            state.value.selectedSubMenu.data.map(async (subMenu) => {
+              const images = subMenu.data.map((item) => item.url).filter((item) => item);
+              const loading = await checkImageOnCache(images);
+              return { ...subMenu, loading };
+            }),
+          );
+
+          state.value.selectedSubMenu.data = recheckData;
+
+          if (recheckData.every((subMenu) => !subMenu.loading)) {
+            clearInterval(intervalCheckSubMenu);
+          }
+        }, 5000); // Ubah ke 5 detik untuk reduce frequency
       }
-    }, 1000);
-  }
+    }
+  }, 100); // Debounce 100ms sebelum loading check
+};
 
-  if (!isVisible.value) {
-    clearInterval(intervalCheckSubMenu);
-  }
-});
+// Stop submenu loading check saat submenu ditutup
+const stopSubmenuLoadingCheck = () => {
+  clearInterval(intervalCheckSubMenu);
+  clearTimeout(loadingCheckTimeout);
+};
 
 const handleScroll = () => {
   state.value.submenuVisible = false;
+  stopSubmenuLoadingCheck();
 };
 watch(
   () => menuStore.selected,
@@ -370,7 +397,7 @@ const unwatch = watchEffect(() => {});
 
 onUnmounted(() => {
   unwatch();
-  clearInterval(intervalCheckSubMenu);
+  stopSubmenuLoadingCheck();
   clearInterval(intervalCheckMenu);
   clearInterval(intervalCheckAllImages);
   state.value.selectedSubMenu = [];
