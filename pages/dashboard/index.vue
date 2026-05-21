@@ -58,7 +58,7 @@ const checkAllImageLoaded = async () => {
   intervalCheckAllImages = setInterval(async () => {
     const response = await checkImageOnCache(images);
 
-    if (!response) {
+    if (response) {
       clearInterval(intervalCheckAllImages);
       console.log('All cover are loaded');
       coverIsReady.value = false;

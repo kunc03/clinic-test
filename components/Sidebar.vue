@@ -256,7 +256,8 @@ const setAccordionItems = (data) => {
   nextTick(async () => {
     const updatedItems = await Promise.all(
       accordionItems.value.map(async (item) => {
-        const loading = await checkImageOnCache(item._images);
+        const isCached = await checkImageOnCache(item._images);
+        const loading = !isCached;
         return { ...item, loading };
       }),
     );
@@ -337,7 +338,8 @@ const startSubmenuLoadingCheck = () => {
       const updatedData = await Promise.all(
         state.value.selectedSubMenu.data.map(async (subMenu) => {
           const images = subMenu.data.map((item) => item.url).filter((item) => item);
-          const loading = await checkImageOnCache(images);
+          const isCached = await checkImageOnCache(images);
+          const loading = !isCached;
           return { ...subMenu, loading };
         }),
       );
@@ -350,7 +352,8 @@ const startSubmenuLoadingCheck = () => {
           const recheckData = await Promise.all(
             state.value.selectedSubMenu.data.map(async (subMenu) => {
               const images = subMenu.data.map((item) => item.url).filter((item) => item);
-              const loading = await checkImageOnCache(images);
+              const isCached = await checkImageOnCache(images);
+              const loading = !isCached;
               return { ...subMenu, loading };
             }),
           );

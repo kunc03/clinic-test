@@ -1,9 +1,12 @@
 export const checkImageOnCache = async (data: Array<string>) => {
   if (data.length < 1) {
-    return false;
+    return true;
   }
 
   const urlsToCache = data.filter((i) => i.endsWith('.jpg') || i.endsWith('.png') || i.endsWith('.jpeg'));
+  if (urlsToCache.length < 1) {
+    return true;
+  }
 
   const CACHE_NAME = `diamond-clinic-cache-v2 - ${self.location.origin}`;
   try {
@@ -14,7 +17,7 @@ export const checkImageOnCache = async (data: Array<string>) => {
     const cachedUrls = cachedRequests.map((request) => request.url);
     const isCompletelyCached = urlsToCache.every((url) => cachedUrls.some((cachedUrl) => cachedUrl.includes(url)));
 
-    return !isCompletelyCached;
+    return isCompletelyCached;
   } catch (error) {
     console.error('Error checking cache:', error);
     return false;
