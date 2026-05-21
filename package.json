@@ -1,10 +1,12 @@
 {
   "name": "nuxt-app",
+  "version": "1.0.1",
+  "update": "2024-06-17T12:00:00.000Z",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "dev": "nuxt dev --port 3004",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "dev:preview:build": "nuxt build && nuxt start",

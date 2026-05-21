@@ -1,5 +1,8 @@
 // nuxt.config.ts
 import { defineNuxtConfig } from 'nuxt/config';
+import { readFileSync } from 'fs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 export default defineNuxtConfig({
   modules: [
@@ -113,6 +116,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       API_URL: process.env.API_URL,
+      VERSION: pkg.version,
+      UPDATE: pkg.update
     },
   },
 

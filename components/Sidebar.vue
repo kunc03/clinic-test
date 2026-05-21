@@ -83,6 +83,9 @@
 
       <ButtonUpdate label="Update" class="mt-2" />
     </div>
+
+    <p class="absolute left-1/2 bottom-2 -translate-x-1/2 text-[10px] font-normal text-gray-500/70">v{{ version }}</p>
+
   </div>
   <div
     v-if="sidebarStore.open"
@@ -102,6 +105,10 @@ const props = defineProps({
 const toast = useToast();
 const menuStore = useMenuStore();
 const sidebarStore = useSidebar();
+
+// Use runtime config for app version
+const runtimeConfig = useRuntimeConfig();
+const version = runtimeConfig.public?.VERSION ?? '';
 
 // State management
 const state = ref({
@@ -418,6 +425,7 @@ onUnmounted(() => {
   font-family: 'BirdOfParadise', cursive;
   font-weight: 400;
 }
+
 .menu-sidebar {
   z-index: 1000;
   font-size: 16px;
