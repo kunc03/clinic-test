@@ -62,13 +62,8 @@ defineComponent({
   },
 });
 
-const goToHomepage = async () => {
-  if (document.referrer.includes('/dashboard')) {
-    await nextTick();
-    window.location.reload();
-  } else {
-    router.push('/dashboard');
-  }
+const goToHomepage = () => {
+  router.push('/dashboard');
 };
 
 const handlePin = async () => {

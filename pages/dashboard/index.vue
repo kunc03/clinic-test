@@ -43,8 +43,16 @@ const sidebarData = computed(() => {
 });
 
 let intervalCheckAllImages;
+let timeoutFallback;
+
 const checkAllImageLoaded = async () => {
   const { data } = storeToRefs(apiDataStore);
+
+  if (!data.value?.categories) {
+    console.warn('API data not ready, dismissing splash screen');
+    coverIsReady.value = false;
+    return;
+  }
 
   const images = [];
   data.value.categories.forEach((category) => {
@@ -55,11 +63,21 @@ const checkAllImageLoaded = async () => {
     });
   });
 
+  // Fallback: dismiss splash screen after 30s max regardless of cache status
+  timeoutFallback = setTimeout(() => {
+    if (coverIsReady.value) {
+      clearInterval(intervalCheckAllImages);
+      console.warn('Splash screen timeout reached, forcing dismiss');
+      coverIsReady.value = false;
+    }
+  }, 30000);
+
   intervalCheckAllImages = setInterval(async () => {
     const response = await checkImageOnCache(images);
 
     if (response) {
       clearInterval(intervalCheckAllImages);
+      clearTimeout(timeoutFallback);
       console.log('All cover are loaded');
       coverIsReady.value = false;
     }
@@ -71,6 +89,11 @@ onMounted(() => {
     menuStore.setImagesLoaded(false);
     checkAllImageLoaded();
   }, 2000);
+});
+
+onUnmounted(() => {
+  clearInterval(intervalCheckAllImages);
+  clearTimeout(timeoutFallback);
 });
 </script>
 

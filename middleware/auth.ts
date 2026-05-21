@@ -5,14 +5,12 @@ export default defineNuxtRouteMiddleware(async () => {
     const isValid = verifyToken(TOKEN.value);
 
     if (!isValid) {
-      setTimeout(() => {
-        TOKEN.value = null;
-        return navigateTo('/');
-      }, 500);
+      TOKEN.value = null;
+      return navigateTo('/');
     }
+
+    return;
   }
 
-  if (!TOKEN.value) {
-    return navigateTo('/');
-  }
+  return navigateTo('/');
 });
